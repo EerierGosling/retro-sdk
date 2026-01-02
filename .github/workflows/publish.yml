@@ -3,7 +3,7 @@ name: publish to pypi
 on:
   push:
     branches:
-      - production
+      - prod
   release:
     types: [published]
   workflow_dispatch:
