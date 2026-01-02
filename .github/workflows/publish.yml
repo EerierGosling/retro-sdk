@@ -1,6 +1,9 @@
 name: publish to pypi
 
 on:
+  push:
+    branches:
+      - production
   release:
     types: [published]
   workflow_dispatch:
