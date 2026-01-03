@@ -3,14 +3,13 @@ name: publish to pypi
 on:
   push:
     branches:
-      - prod
-  release:
-    types: [published]
+      - main
   workflow_dispatch:
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: startsWith(github.event.head_commit.message, '[publish]')
     
     steps:
     - uses: actions/checkout@v4
