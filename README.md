@@ -1,6 +1,8 @@
 # retro sdk
 
-this is an sdk to use the internal retro apis with python! the functions available are:
+this is an sdk to use the internal retro apis with python!
+
+the functions available are:
 
 ## authentication
 
