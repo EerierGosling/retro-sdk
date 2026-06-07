@@ -7,8 +7,7 @@ the functions available are:
 ## authentication
 
 - `get_refresh_token(token, verbose=False)` — exchange a custom token for a refresh token and store it
-- ~~`send_code(phone_number, custom_data=None, verbose=False)` — send a verification SMS to a phone number (international format); returns `authenticationUuid`~~ doesn't work without a firebase app token!
-- `send_code_v2(phone_number, verbose=False)` — v2 of send code
+- `send_code(phone_number, verbose=False)` - send a verification SMS to a phone number (international format)
 - `verify_code(code, authenticationUuid=None, verbose=False)` — verify the SMS code and authenticate the session
 
 ## profile & account
