@@ -22,17 +22,22 @@ a python sdk for the internal retro apis!
 
 - `get_week_media(user_id, week_id)` — get all media items for a user and week
 - `get_week_id(owner_id, media_id)` — look up the week ID for a given post (tries existing comments, then walks profile weeks)
+- `upload_media(image, image_time=None)` — upload a PIL Image as a new post; `image_time` is a unix timestamp for when the photo was taken (determines the week and `createdAt`; defaults to now)
 - `delete_media(week_id, media_id)` — delete one of your own media items
+- `tag_user(media_id, week_id, user_id)` — tag a user in one of your own posts
+- `untag_user(media_id, week_id, user_id)` — remove a tag from one of your own posts
 - `get_media_metadata(user_id, week, filename)` — get Firebase Storage metadata for a media file
 - `list_files_in_folder(user_id, week)` — list raw Storage response for a user's week folder
 - `get_filenames_in_folder(user_id, week)` — get filenames in a user's week folder
 - `download_media_file(user_id, week, filename)` — download a media file as a PIL Image
 - `download_image(storage_path)` — download any Firebase Storage file as a PIL Image
 
-## comments
+## comments & likes
 
 - `get_media_comments(owner_id, media_id)` — get all comments on a media item
-- `post_comment(owner_id, media_id, text, week_id=None)` — post a comment; pass `week_id` when known (required for comment to appear in app)
+- `post_comment(owner_id, media_id, week_id, text, media_url=None)` — post a comment; fetches `targetMediaURL` automatically if not provided
+- `like_media(owner_id, media_id, week_id, media_url=None)` — like a media item; fetches `targetMediaURL` automatically if not provided
+- `unlike_media(owner_id, media_id)` — remove a like
 
 ## friends
 

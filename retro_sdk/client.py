@@ -5,6 +5,7 @@ import time
 import uuid
 import urllib.parse
 import requests
+from datetime import datetime
 from PIL import Image
 from google.oauth2.credentials import Credentials
 from google.cloud import firestore
@@ -642,6 +643,35 @@ class Retro:
         db = self._get_firestore_client()
         db.collection("users").document(uid).collection("friends").document(user_id).update({"hasGivenKey": False})
 
+    def like_media(self, owner_id, media_id, week_id) -> None:
+        """Likes a media item."""
+        media_id = media_id.rsplit(".", 1)[0] if "." in media_id else media_id
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+
+        
+        probe = db.collection("users").document(owner_id).collection("media").document(week_id).collection("items").document(media_id).get()
+        if probe.exists:
+            media_url = probe.to_dict().get("fullSizeURL")
+
+        doc = {
+            "uid": uid,
+            "targetMediaId": media_id,
+            "targetMediaWeekId": week_id,
+            "targetMediaCreatorId": owner_id,
+            "createdAt": time.time(),
+        }
+        if media_url:
+            doc["targetMediaURL"] = media_url
+        db.collection("users").document(owner_id).collection("receivedLikes").document(f"{media_id}_{uid}").set(doc)
+
+    def unlike_media(self, owner_id, media_id) -> None:
+        """Removes a like from a media item."""
+        media_id = media_id.rsplit(".", 1)[0] if "." in media_id else media_id
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        db.collection("users").document(owner_id).collection("receivedLikes").document(f"{media_id}_{uid}").delete()
+
     def get_album(self, album_id) -> dict | None:
         """
         Gets album metadata from Firestore. Returns `None` if the album does not exist.
@@ -826,5 +856,97 @@ class Retro:
         for doc in items_ref.stream():
             data = doc.to_dict()
             results.append({"id": doc.id, **data})
-            
+
         return results
+
+    def upload_media(self, image: Image.Image, image_time: float = None) -> dict:
+        """
+        Uploads a photo and creates the Firestore media document. Returns the new media item dict.
+
+        `image` must be a PIL Image. `image_time` is the timestamp when the image was taken (defaults to now).
+        The image is converted to .webp before upload.
+        """
+        uid = self.get_current_user_id()
+
+        image_time_datetime = datetime.fromtimestamp(image_time) if image_time else datetime.now()
+        iso = image_time_datetime.isocalendar()
+        week_id = f"{iso[0]}_{iso[1]:02d}"
+
+        media_id = str(uuid.uuid4()).upper()
+        storage_path = f"media/{uid}/{week_id}/{media_id}.webp"
+        encoded_path = urllib.parse.quote(storage_path, safe="")
+
+        buf = io.BytesIO()
+        image.save(buf, format="WEBP")
+        image_bytes = buf.getvalue()
+
+        upload_url = f"https://firebasestorage.googleapis.com/v0/b/retro-media-multi/o?uploadType=media&name={encoded_path}"
+        r = requests.post(upload_url, headers={**self.get_auth_header(), "Content-Type": "image/webp"}, data=image_bytes)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error uploading to Storage: {r.text}")
+            raise
+        download_token = r.json().get("downloadTokens", "")
+        full_size_url = f"https://firebasestorage.googleapis.com/v0/b/retro-media-multi/o/{encoded_path}?alt=media&token={download_token}"
+
+        now_ts = time.time()
+        doc = {
+            "cloudId": media_id,
+            "fullSizeURL": full_size_url,
+            "creatorId": uid,
+            "imageWidth": float(image.width),
+            "imageHeight": float(image.height),
+            "thumbHash": "",
+            "uploadedAt": now_ts,
+            "createdAt": image_time,
+            "isKeyholdersOnly": False,
+            "uploadedInCurrentWeek": True,
+            "localAssetIdentifier": "",
+            "videoDurationSeconds": 0.0,
+        }
+
+        db = self._get_firestore_client()
+        db.collection("users").document(uid).collection("media").document(week_id).collection("items").document(media_id).set(doc)
+
+        return {"id": media_id, **doc}
+
+    def tag_user(self, media_id, week_id, user_id) -> bool:
+        """Tags a user in one of your own media items. Returns `True` if successful and `False` otherwise."""
+        uid = self.get_current_user_id()
+        url = "https://us-central1-retro-media.cloudfunctions.net/tagMediaForUser"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        payload = {"data": {
+            "postMediaId": media_id,
+            "postWeekId": week_id,
+            "postOwnerId": uid,
+            "postIsKeyholdersOnly": False,
+            "userId": user_id,
+        }}
+        r = requests.post(url, headers=headers, json=payload)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return True
+
+    def untag_user(self, media_id, week_id, user_id) -> bool:
+        """Removes a tag from one of your own media items. Returns `True` if successful and `False` otherwise."""
+        uid = self.get_current_user_id()
+        url = "https://us-central1-retro-media.cloudfunctions.net/removeMediaTagForUser"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        payload = {"data": {
+            "postMediaId": media_id,
+            "postWeekId": week_id,
+            "postOwnerId": uid,
+            "postIsKeyholdersOnly": False,
+            "userId": user_id,
+        }}
+        r = requests.post(url, headers=headers, json=payload)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return True
