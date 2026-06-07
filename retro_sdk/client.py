@@ -403,9 +403,9 @@ class Retro:
             return None
         return hits[0].get("objectID")
 
-    def create_journal(self, name, members=[], cover_font="roslindale", verbose=False) -> str | dict:
+    def create_album(self, name, members=[], cover_font="roslindale", verbose=False) -> str | dict: # albums are called journals in the api
         """
-        Creates a new journal with the specified name, members, and cover font. Returns the journal ID if successful, `None` otherwise.
+        Creates a new album with the specified name, members, and cover font. Returns the album ID if successful, `None` otherwise.
         
         If `verbose=True`, returns the full response from the server.
         """
@@ -642,9 +642,9 @@ class Retro:
         db = self._get_firestore_client()
         db.collection("users").document(uid).collection("friends").document(user_id).update({"hasGivenKey": False})
 
-    def get_journal(self, journal_id) -> dict | None:
+    def get_album(self, album_id) -> dict | None:
         """
-        Gets journal metadata from Firestore. Returns `None` if the journal does not exist.
+        Gets album metadata from Firestore. Returns `None` if the album does not exist.
 
         Return format:
         ```
@@ -665,17 +665,14 @@ class Retro:
         ```
         """
         db = self._get_firestore_client()
-        doc = db.collection("journals").document(journal_id).get()
+        doc = db.collection("journals").document(album_id).get()
         if not doc.exists:
             return None
         return {"id": doc.id, **doc.to_dict()}
 
-    def get_journal_media(self, journal_id) -> list[dict]:
+    def get_album_media(self, album_id) -> list[dict]:
         """
-        Gets all media items from `journals/{journalId}/media` ordered by `createdAt`.
-
-        Journal media is a flat collection with no week structure — week grouping is done client-side
-        from the `createdAt` timestamp, unlike user media which is nested by weekId.
+        Gets all albums.
 
         Return format:
         ```
@@ -699,7 +696,7 @@ class Retro:
         ```
         """
         db = self._get_firestore_client()
-        ref = db.collection("journals").document(journal_id).collection("media").order_by("createdAt")
+        ref = db.collection("journals").document(album_id).collection("media").order_by("createdAt")
         results = []
         try:
             for doc in ref.stream():
@@ -708,11 +705,11 @@ class Retro:
             print("PermissionDenied: journals media subcollection")
         return results
 
-    def add_journal_member(self, journal_id, user_ids) -> bool | dict:
-        """Adds a member to a journal. Returns `True` if successful and `False` otherwise."""
+    def add_album_member(self, album_id, user_ids) -> bool | dict:
+        """Adds a member to an album. Returns `True` if successful and `False` otherwise."""
         url = "https://us-central1-retro-media.cloudfunctions.net/addJournalMembers"
         headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
-        r = requests.post(url, headers=headers, json={"data": {"uids": user_ids, "journalId": journal_id}})
+        r = requests.post(url, headers=headers, json={"data": {"uids": user_ids, "journalId": album_id}})
         try:
             r.raise_for_status()
         except requests.HTTPError:
@@ -720,11 +717,11 @@ class Retro:
             return False
         return True
     
-    def remove_journal_member(self, journal_id, user_id) -> bool | dict:
-        """Removes a member from a journal. Returns `True` if successful and `False` otherwise."""
+    def remove_album_member(self, album_id, user_id) -> bool | dict:
+        """Removes a member from an album. Returns `True` if successful and `False` otherwise."""
         url = "https://us-central1-retro-media.cloudfunctions.net/removeFromJournal"
         headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
-        r = requests.post(url, headers=headers, json={"data": {"uid": user_id, "journalId": journal_id}})
+        r = requests.post(url, headers=headers, json={"data": {"uid": user_id, "journalId": album_id}})
         try:
             r.raise_for_status()
         except requests.HTTPError:
@@ -732,11 +729,11 @@ class Retro:
             return False
         return True
     
-    def make_journal_admin(self, journal_id, user_id) -> bool | dict:
-        """Promotes a member to admin in a journal. Returns `True` if successful and `False` otherwise."""
+    def make_album_admin(self, album_id, user_id) -> bool | dict:
+        """Promotes a member to admin in an album. Returns `True` if successful and `False` otherwise."""
         url = "https://us-central1-retro-media.cloudfunctions.net/makeJournalAdmin"
         headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
-        r = requests.post(url, headers=headers, json={"data": {"uid": user_id, "journalId": journal_id}})
+        r = requests.post(url, headers=headers, json={"data": {"uid": user_id, "journalId": album_id}})
         try:
             r.raise_for_status()
         except requests.HTTPError:
