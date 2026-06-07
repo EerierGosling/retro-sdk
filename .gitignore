@@ -2,3 +2,6 @@
 .DS_Store
 .env
 .python-version
+**/__pycache__/
+test*.py
+test*.txt
