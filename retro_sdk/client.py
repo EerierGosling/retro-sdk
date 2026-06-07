@@ -262,7 +262,7 @@ class Retro:
             return r_json
         return r_json["result"]
     
-    def set_username(self, username, verbose=False) -> bool | dict:
+    def set_username(self, username, verbose=False) -> bool:
         """
         Sets the username for the current user. Returns `True` if successful, `False` otherwise.
 
@@ -281,12 +281,8 @@ class Retro:
             return True
         return r.json()
 
-    def send_friend_request(self, user_id, verbose=False) -> bool | dict:
-        """
-        Sends a friend request to the specified user. Returns `True` if successful, `False` otherwise.
-
-        If `verbose=True`, returns the full response from the server.
-        """
+    def send_friend_request(self, user_id) -> bool:
+        """Sends a friend request to the specified user. Returns `True` if successful, `False` otherwise."""
         url = "https://us-central1-retro-media.cloudfunctions.net/requestFriend"
         headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
         payload = {"data": {"uid": user_id}}
@@ -296,16 +292,10 @@ class Retro:
         except requests.HTTPError:
             print(f"Error: {r.text}")
             return False
-        if not verbose:
-            return True
-        return r.json()
+        return True
     
-    def cancel_friend_request(self, user_id, verbose=False) -> bool | dict:
-        """
-        Cancels a friend request to the specified user. Returns `True` if successful, `False` otherwise.
-
-        If `verbose=True`, returns the full response from the server.
-        """
+    def cancel_friend_request(self, user_id) -> bool:
+        """Cancels a friend request to the specified user. Returns `True` if successful, `False` otherwise."""
         url = "https://us-central1-retro-media.cloudfunctions.net/cancelFriendRequest"
         headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
         payload = {"data": {"uid": user_id}}
@@ -315,16 +305,10 @@ class Retro:
         except requests.HTTPError:
             print(f"Error: {r.text}")
             return False
-        if not verbose:
-            return True
-        return r.json()
+        return True
     
-    def unfriend(self, user_id, verbose=False) -> bool | dict:
-        """
-        Removes a user from the current user's friends list. Returns `True` if successful, `False` otherwise.
-
-        If `verbose=True`, returns the full response from the server.
-        """
+    def unfriend(self, user_id) -> bool:
+        """Removes a user from the current user's friends list. Returns `True` if successful, `False` otherwise."""
         url = "https://us-central1-retro-media.cloudfunctions.net/unfriend"
         headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
         payload = {"data": {"uid": user_id}}
@@ -334,9 +318,7 @@ class Retro:
         except requests.HTTPError:
             print(f"Error: {r.text}")
             return False
-        if not verbose:
-            return True
-        return r.json()
+        return True
     
     def get_people_you_may_also_know(self, user_id, verbose=False) -> list | dict:
         """
@@ -684,6 +666,7 @@ class Retro:
             "creatorId": str,
             "createdAt": datetime,
             "updatedAt": datetime,
+            "publicSlug": str,                       # short share slug (e.g. "aeozZ0Q"); same as journalSlug on media items
             "coverFont": str,                        # e.g. "roslindale"
             "mediaSortOrder": str,                   # e.g. "newest_first"
             "editPermission": str,                   # e.g. "creator_only", "all_members"
@@ -702,24 +685,32 @@ class Retro:
 
     def get_album_media(self, album_id) -> list[dict]:
         """
-        Gets all albums.
+        Gets all media items in a journal/album, ordered oldest-first.
 
-        Return format:
+        Items have the same fields as `get_week_media`. Key fields:
         ```
         [
             {
-                "id": str,                           # UUID (matches Firebase Storage filename)
+                "id": str,
                 "creatorId": str,
                 "createdAt": float,                  # unix timestamp (seconds), when photo was taken
                 "uploadedAt": float,                 # unix timestamp (seconds)
                 "uploadedInCurrentWeek": bool,
-                "fullSizeURL": str,                  # Firebase Storage download URL
-                "thumbHash": str,                    # blurhash-style thumbnail
+                "fullSizeURL": str,                  # Firebase Storage download URL (.webp thumbnail)
+                "thumbHash": str,
                 "imageWidth": float,
                 "imageHeight": float,
                 "isKeyholdersOnly": bool,
-                "timeZoneOffset": float,             # optional, UTC offset in seconds (e.g. -14400 = EDT)
+                "videoDurationSeconds": float,       # 0.0 for photos
+                "videoURL": str,                     # optional (video only), Mux HLS stream URL
+                "originalVideoURL": str,             # optional (video only), Firebase Storage URL of original .mov
+                "isMuxVideo": bool,                  # optional (video only)
+                "muxAssetID": str,                   # optional (video only)
+                "timeZoneOffset": float,             # optional
+                "locationName": str,                 # optional
                 "localAssetIdentifier": str,         # optional, iOS PHAsset identifier
+                "captionCommentId": str,             # optional
+                "taggedUsers": list[str],            # optional
             },
             ...
         ]
@@ -829,12 +820,13 @@ class Retro:
                 "creatorId": str,                          # user ID of the uploader
                 "imageHeight": float,                      # not on memory posts
                 "imageWidth": float,                       # not on memory posts
-                "thumbHash": str,                          # blurhash-style thumbnail
+                "thumbHash": str,                          # ThumbHash encoded as base64
+                "blurHash": str,                           # BlurHash encoded string
                 "uploadedAt": float,                       # unix timestamp (seconds)
                 "createdAt": float,                        # unix timestamp (seconds), when taken
                 "isKeyholdersOnly": bool,
                 "uploadedInCurrentWeek": bool,
-                "localAssetIdentifier": str,               # iOS PHAsset identifier
+                "localAssetIdentifier": str,               # iOS PHAsset identifier (e.g. "UUID/L0/001"); Firestore journal doc ID on journal posts
                 "videoDurationSeconds": float,             # 0.0 for photos
                 "timeZoneOffset": float,                   # optional, UTC offset in seconds (e.g. -14400 = EDT)
                 "locationName": str,                       # optional
@@ -845,6 +837,11 @@ class Retro:
                 "repostedMediaOriginalOwner": str,         # optional, exists on reposts
                 "memoryType": str,                         # optional, exists on memory posts (e.g. "onThisWeek")
                 "memoryCreatedAt": float,                  # optional, exists on memory posts
+                "journalSlug": str,                        # optional, present when posted to a journal; matches `publicSlug` on the journal doc
+                "videoURL": str,                           # optional (video only), Mux HLS stream URL
+                "originalVideoURL": str,                   # optional (video only), Firebase Storage URL of original .mov
+                "isMuxVideo": bool,                        # optional (video only), True once Mux has processed the video
+                "muxAssetID": str,                         # optional (video only), Mux asset ID
             },
             ...
         ]
@@ -859,12 +856,180 @@ class Retro:
 
         return results
 
-    def upload_media(self, image: Image.Image, image_time: float = None) -> dict:
+    def get_threads(self, member_filter: dict = None, include_deleted=False) -> list[dict]:
+        """
+        Returns the current user's DM threads.
+
+        #### Arguments:
+            `member_filter`: `{"member_ids": [str], "exclusive": bool}` to filter threads by members. If `"exclusive"` is `True`, only returns threads that include all and only the specified member IDs. Otherwise, returns threads that include all specified member IDs and possibly others.
+            `include_deleted`: if `False` (default), excludes threads where `lastDeletedAt` is set.
+
+        #### Returns:
+        ```
+        [
+            {
+                "id": str,                          # thread ID
+                "pushNotificationsEnabled": bool,
+                "joinedAt": datetime,
+                "lastDeletedAt": datetime,          # optional, present if user deleted the thread
+            },
+            ...
+        ]
+        ```
+        """
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        results = []
+        for doc in db.collection("users").document(uid).collection("messageThreads").stream():
+            data = {"id": doc.id, **doc.to_dict()}
+            if not include_deleted and data.get("lastDeletedAt"):
+                continue
+            if member_filter:
+                thread_members = set(self.get_thread_members(doc.id))
+                required = set(member_filter["member_ids"])
+                if member_filter.get("exclusive"):
+                    if thread_members != required | {uid}:
+                        continue
+                else:
+                    if not required.issubset(thread_members):
+                        continue
+            results.append(data)
+        return results
+
+    def get_thread_members(self, thread_id) -> list[str]:
+        """Returns the member user IDs for a thread."""
+        # for 1 on 1 threads, reads from `canonicalThreadId` on the top-level doc
+        # for group threads, reads from the `messageThreads/{thread_id}/members` subcollection
+        
+        db = self._get_firestore_client()
+        top = db.collection("messageThreads").document(thread_id).get()
+        if not top.exists:
+            return []
+        canonical = top.to_dict().get("canonicalThreadId")
+        if canonical:
+            return canonical.split("_")
+        return [doc.id for doc in db.collection("messageThreads").document(thread_id).collection("members").stream()]
+
+    def get_messages(self, thread_id, limit=50) -> list[dict]:
+        """Returns messages from the specified thread, ordered oldest-first.
+
+        Common fields on all message types:
+        ```
+        {
+            "id": str,
+            "type": str,                   # see types below
+            "senderId": str,
+            "createdAt": datetime,
+            "clientCreatedAt": float,      # unix seconds timestamp
+            "journalId": null,             # optional - haven't found a case where it isn't null
+            "profileUserId": null,         # optional - haven't found a case where it isn't null
+
+        }
+        ```
+
+        Type-specific fields:
+
+        `type="text"`:
+        ```
+        {
+            "text": str,
+            "clientMessageId": str,
+            "replyToMessageId": str,       # optional
+            "link": {                      # optional, present when text is a URL the app resolved
+                "url": str,
+                "title": str,
+                "description": str,
+                "imageURL": str,
+            },
+        }
+        ```
+
+        `type="photo"`:
+        ```
+        {
+            "photoURL": str,               # storage path: messageThreads/media/{threadId}/{senderId}/{messageId}.webp
+            "photoWidthPx": int,
+            "photoHeightPx": int,
+            "photoThumbHash": str,
+            "clientCreatedAt": float,
+        }
+        ```
+
+        `type="users_added"`:
+        ```
+        {
+            "users": list[str],            # list of user IDs that were added
+            "clientMessageId": None,
+            "text": None,
+            "replyToMessageId": None,
+        }
+        ```
+
+        `type="post"` (shared post):
+        ```
+        {
+            "postOwnerId": str,
+            "postMediaId": str,
+            "postWeekId": str,
+            "postJournalId": str | None,
+            "text": str | None,            # caption sent with the shared post
+            "clientMessageId": None,
+            "replyToMessageId": None,
+        }
+        ```
+        """
+        
+        db = self._get_firestore_client()
+        ref = db.collection("messageThreads").document(thread_id).collection("messages").order_by("createdAt").limit(limit)
+        return [{"id": doc.id, **doc.to_dict()} for doc in ref.stream()]
+
+    def send_message(self, thread_id, text) -> str:
+        """Sends a text DM to an existing thread. Returns the new message ID."""
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        msg_ref = db.collection("messageThreads").document(thread_id).collection("messages").document()
+        msg_ref.set({
+            "clientMessageId": str(uuid.uuid4()).upper(),
+            "senderId": uid,
+            "type": "text",
+            "text": text,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "clientCreatedAt": float(time.time() * 1000),
+        })
+        return msg_ref.id
+
+    def create_message_thread(self, user_ids) -> str | bool:
+        """Creates a message thread (DM group/individual chat). Returns the message thread ID if successful, `False` otherwise."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/createMessageThread"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        payload = {"data": {"members": user_ids}}
+        r = requests.post(url, headers=headers, json=payload)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json()["result"]["messageThreadId"]
+    
+    def add_message_thread_members(self, user_ids, message_thread_id) -> bool:
+        """Adds members to an existing message thread. Returns `True` if successful, `False` otherwise."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/addMessageThreadMembers"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        payload = {"data": {"uids": user_ids, "messageThreadId": message_thread_id}}
+        r = requests.post(url, headers=headers, json=payload)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return True
+
+    def upload_media(self, image: Image.Image, image_time: float = None, image_location: str = None, album_id: str = None) -> dict:
         """
         Uploads a photo and creates the Firestore media document. Returns the new media item dict.
 
         `image` must be a PIL Image. `image_time` is the timestamp when the image was taken (defaults to now).
-        The image is converted to .webp before upload.
+        The image is converted to .webp before upload. Pass `album_id` to associate the post with an album.
         """
         uid = self.get_current_user_id()
 
@@ -905,6 +1070,11 @@ class Retro:
             "localAssetIdentifier": "",
             "videoDurationSeconds": 0.0,
         }
+        if album_id:
+            doc["journalSlug"] = self.get_album(album_id)["publicSlug"]
+            doc["localAssetIdentifier"] = album_id
+        if image_location:
+            doc["locationName"] = image_location
 
         db = self._get_firestore_client()
         db.collection("users").document(uid).collection("media").document(week_id).collection("items").document(media_id).set(doc)

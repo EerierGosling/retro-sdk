@@ -1,6 +1,6 @@
 # retro sdk
 
-a python sdk for the internal retro apis!
+a python sdk for the internal retro api + db!
 
 ## authentication
 
@@ -21,8 +21,7 @@ a python sdk for the internal retro apis!
 ## media
 
 - `get_week_media(user_id, week_id)` — get all media items for a user and week
-- `get_week_id(owner_id, media_id)` — look up the week ID for a given post (tries existing comments, then walks profile weeks)
-- `upload_media(image, image_time=None)` — upload a PIL Image as a new post; `image_time` is a unix timestamp for when the photo was taken (determines the week and `createdAt`; defaults to now)
+- `upload_media(image, image_time=None, image_location=None, album_id=None)` — upload a PIL Image as a new post; `image_time` is a unix timestamp for when the photo was taken (determines week and `createdAt`; defaults to now); optionally set `image_location` and `album_id` to associate with a journal
 - `delete_media(week_id, media_id)` — delete one of your own media items
 - `tag_user(media_id, week_id, user_id)` — tag a user in one of your own posts
 - `untag_user(media_id, week_id, user_id)` — remove a tag from one of your own posts
@@ -35,33 +34,42 @@ a python sdk for the internal retro apis!
 ## comments & likes
 
 - `get_media_comments(owner_id, media_id)` — get all comments on a media item
-- `post_comment(owner_id, media_id, week_id, text, media_url=None)` — post a comment; fetches `targetMediaURL` automatically if not provided
-- `like_media(owner_id, media_id, week_id, media_url=None)` — like a media item; fetches `targetMediaURL` automatically if not provided
+- `post_comment(owner_id, media_id, week_id, text)` — post a comment on a media item
+- `like_media(owner_id, media_id, week_id)` — like a media item
 - `unlike_media(owner_id, media_id)` — remove a like
 
 ## friends
 
 - `get_friend_statuses(filter=None)` — get all friend relationships; optionally pass a `FieldFilter`
-- `send_friend_request(user_id, verbose=False)` — send a friend request
-- `cancel_friend_request(user_id, verbose=False)` — cancel a pending outbound friend request
+- `send_friend_request(user_id)` — send a friend request
+- `cancel_friend_request(user_id)` — cancel a pending outbound friend request
 - `accept_friend_request(user_id, verbose=False)` — accept an incoming friend request
 - `reject_friend_request(user_id, verbose=False)` — reject an incoming friend request
-- `unfriend(user_id, verbose=False)` — remove a friend
+- `unfriend(user_id)` — remove a friend
 - `get_people_you_may_also_know(user_id, verbose=False)` — get suggested friends
 
 ## keys
 
-- `send_key(user_id)` — give your key to a friend
+- `give_key(user_id)` — give your key to a friend
 - `revoke_key(user_id)` — take back a key you gave
 
 ## albums
 
-- `get_album(album_id)` — get album metadata
-- `get_album_media(album_id)` — get all media in an album
+- `get_album(album_id)` — get album/journal metadata (includes `publicSlug` for share URLs)
+- `get_album_media(album_id)` — get all media in an album, ordered oldest-first
 - `create_album(name, members=[], cover_font="roslindale", verbose=False)` — create a new album
 - `add_album_member(album_id, user_ids)` — add members to an album
 - `remove_album_member(album_id, user_id)` — remove a member from an album
 - `make_album_admin(album_id, user_id)` — promote a member to admin
+
+## dms
+
+- `get_threads(member_filter=None, include_deleted=False)` — get DM threads for the current user; optionally filter by members with `{"member_ids": [...], "exclusive": bool}`
+- `get_thread_members(thread_id)` — get member user IDs for a thread
+- `get_messages(thread_id, limit=50)` — get messages in a thread, oldest-first
+- `send_message(thread_id, text)` — send a text message to an existing thread; returns the new message ID
+- `create_message_thread(member_ids)` — create a new DM thread with a list of user IDs; returns the thread ID
+- `add_message_thread_members(user_ids, message_thread_id)` — add members to an existing thread
 
 ## notifications
 

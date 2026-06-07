@@ -5,3 +5,6 @@
 **/__pycache__/
 test*.py
 test*.txt
+claude.md
+*.json
+*.jpeg
