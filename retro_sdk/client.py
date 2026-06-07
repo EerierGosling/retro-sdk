@@ -422,6 +422,177 @@ class Retro:
             return r_json["result"]["journalId"]
         return r_json
 
+    def get_current_user_id(self) -> str | None:
+        """Returns the current authenticated user's UID decoded from the JWT."""
+        token = self.get_auth_token()
+        if not token:
+            return None
+        payload = token.split(".")[1]
+        payload += "=" * (4 - len(payload) % 4)
+        claims = json.loads(base64.b64decode(payload))
+        return claims.get("user_id") or claims.get("sub")
+
+    def get_user(self, user_id) -> dict | None:
+        """Gets a user's profile data from Firestore. Returns `None` if the user does not exist."""
+        db = self._get_firestore_client()
+        doc = db.collection("users").document(user_id).get()
+        if not doc.exists:
+            return None
+        return {"id": doc.id, **doc.to_dict()}
+
+    def get_current_user(self) -> dict | None:
+        """Gets the current authenticated user's profile data. Returns `None` if not authenticated."""
+        uid = self.get_current_user_id()
+        if not uid:
+            return None
+        return self.get_user(uid)
+
+    def get_friends(self, user_id) -> list[dict]:
+        """Gets the friends list for a user from Firestore."""
+        db = self._get_firestore_client()
+        results = []
+        for doc in db.collection("users").document(user_id).collection("friends").stream():
+            results.append({"id": doc.id, **doc.to_dict()})
+        return results
+
+    def get_pending_friend_requests(self) -> list[dict]:
+        """Gets incoming pending friend requests for the current authenticated user."""
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        results = []
+        for doc in db.collection("users").document(uid).collection("friendRequests").stream():
+            results.append({"id": doc.id, **doc.to_dict()})
+        return results
+
+    def get_notifications(self) -> list[dict]:
+        """Gets notifications for the current authenticated user from Firestore."""
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        results = []
+        for doc in db.collection("users").document(uid).collection("notifications").stream():
+            results.append({"id": doc.id, **doc.to_dict()})
+        return results
+
+    def accept_friend_request(self, user_id, verbose=False) -> bool | dict:
+        """Accepts an incoming friend request from `user_id`. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/acceptFriendRequest"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        r = requests.post(url, headers=headers, json={"data": {"uid": user_id}})
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
+    def decline_friend_request(self, user_id, verbose=False) -> bool | dict:
+        """Declines an incoming friend request from `user_id`. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/declineFriendRequest"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        r = requests.post(url, headers=headers, json={"data": {"uid": user_id}})
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
+    def post_comment(self, owner_id, media_id, text, verbose=False) -> bool | dict:
+        """Posts a comment on a media item. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/postComment"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        payload = {"data": {"targetMediaCreatorId": owner_id, "targetMediaId": media_id, "text": text}}
+        r = requests.post(url, headers=headers, json=payload)
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
+    def delete_media(self, week_id, media_id, verbose=False) -> bool | dict:
+        """Deletes a media item. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/deleteMedia"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        r = requests.post(url, headers=headers, json={"data": {"weekId": week_id, "mediaId": media_id}})
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
+    def send_key(self, user_id, verbose=False) -> bool | dict:
+        """Sends a key to `user_id`, granting them access to keyholders-only content. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/sendKey"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        r = requests.post(url, headers=headers, json={"data": {"uid": user_id}})
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
+    def revoke_key(self, user_id, verbose=False) -> bool | dict:
+        """Revokes a previously sent key from `user_id`. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/revokeKey"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        r = requests.post(url, headers=headers, json={"data": {"uid": user_id}})
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
+    def get_keyholders(self) -> list[dict]:
+        """Gets the list of users who hold a key to the current authenticated user's keyholders-only content."""
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        results = []
+        for doc in db.collection("users").document(uid).collection("keyholders").stream():
+            results.append({"id": doc.id, **doc.to_dict()})
+        return results
+
+    def get_keys_given(self) -> list[dict]:
+        """Gets the list of users the current authenticated user has given a key to."""
+        uid = self.get_current_user_id()
+        db = self._get_firestore_client()
+        results = []
+        for doc in db.collection("users").document(uid).collection("keysGiven").stream():
+            results.append({"id": doc.id, **doc.to_dict()})
+        return results
+
+    def get_journal(self, journal_id) -> dict | None:
+        """Gets journal metadata from Firestore. Returns `None` if the journal does not exist."""
+        db = self._get_firestore_client()
+        doc = db.collection("journals").document(journal_id).get()
+        if not doc.exists:
+            return None
+        return {"id": doc.id, **doc.to_dict()}
+
+    def get_journal_media(self, journal_id, week_id) -> list[dict]:
+        """Gets media items for a given journal and week. Same structure as `get_week_media`."""
+        db = self._get_firestore_client()
+        items_ref = db.collection("journals").document(journal_id).collection("media").document(week_id).collection("items")
+        results = []
+        for doc in items_ref.stream():
+            results.append({"id": doc.id, **doc.to_dict()})
+        return results
+
+    def add_journal_member(self, journal_id, user_id, verbose=False) -> bool | dict:
+        """Adds a member to a journal. Returns `True` if successful."""
+        url = "https://us-central1-retro-media.cloudfunctions.net/addJournalMember"
+        headers = {"content-type": "application/json", "Authorization": f"Bearer {self.get_auth_token()}"}
+        r = requests.post(url, headers=headers, json={"data": {"journalId": journal_id, "uid": user_id}})
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"Error: {r.text}")
+            return False
+        return r.json() if verbose else True
+
     def get_user_profile_picture(self, user_id) -> Image.Image | None:
         """Gets a user's profile picture as a PIL Image. Returns `None` if the user has no profile picture."""
         db = self._get_firestore_client()
