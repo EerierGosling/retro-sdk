@@ -13,9 +13,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from google.api_core.exceptions import PermissionDenied
 
 class Retro:
-    """
-    A client for interacting with the Retro API.
-    """
+    """A client for interacting with the Retro API."""
 
     def __init__(self, refresh_token=None) -> None:
         """Initializes the Retro client."""
@@ -160,6 +158,7 @@ class Retro:
         return r_json
 
     def list_profile_photos(self, user_id) -> list[str]:
+        """Lists the file names of a user's profile photos."""
         url = "https://firebasestorage.googleapis.com/v0/b/retro-media-multi/o"
         r = requests.get(url, headers=self.get_auth_header(), params={"prefix": f"profilePhotos/{user_id}/", "delimiter": "/"})
         try:
@@ -171,6 +170,7 @@ class Retro:
         return [item["name"].split("/")[-1] for item in items]
 
     def download_image(self, storage_path) -> Image.Image:
+        """Downloads an image from Firebase Storage and returns it as a PIL Image."""
         encoded = urllib.parse.quote(storage_path, safe="")
         url = f"https://firebasestorage.googleapis.com/v0/b/retro-media-multi/o/{encoded}?alt=media"
         r = requests.get(url, headers=self.get_auth_header())
@@ -182,12 +182,15 @@ class Retro:
         return Image.open(io.BytesIO(r.content))
 
     def download_profile_photos(self, user_id) -> list[Image.Image]:
+        """Downloads all of a user's profile photos and returns them as a list of PIL Images."""
         return [self.download_profile_photo(user_id, f) for f in self.list_profile_photos(user_id)]
 
     def download_profile_photo(self, user_id, filename) -> Image.Image:
+        """Downloads a specific profile photo by filename and returns it as a PIL Image."""
         return self.download_image(f"profilePhotos/{user_id}/{filename}")
 
     def get_media_metadata(self, user_id, week, filename) -> dict:
+        """Gets the metadata for a media file from Firebase Storage."""
         url = f"https://firebasestorage.googleapis.com/v0/b/retro-media-multi/o/media%2F{user_id}%2F{week}%2F{filename}"
         r = requests.get(url, headers=self.get_auth_header())
         try:
@@ -198,6 +201,7 @@ class Retro:
         return r.json()
 
     def list_files_in_folder(self, user_id, week) -> dict:
+        """Lists the files in a user's week folder and returns the raw response."""
         url = "https://firebasestorage.googleapis.com/v0/b/retro-media-multi/o"
         r = requests.get(url, headers=self.get_auth_header(), params={"prefix": f"media/{user_id}/{week}/", "delimiter": "/"})
         try:
@@ -208,11 +212,13 @@ class Retro:
         return r.json()
 
     def get_filenames_in_folder(self, user_id, week) -> list[str]:
+        """Lists the files in a user's week folder and returns a list of filenames."""
         data = self.list_files_in_folder(user_id, week)
         items = data.get("items", [])
         return [item["name"] for item in items] if items else []
 
     def download_media_file(self, user_id, week, filename) -> Image.Image:
+        """Downloads a media file from Firebase Storage and returns it as a PIL Image."""
         return self.download_image(f"media/{user_id}/{week}/{filename}")
     
     def profile_weeks(self, user_id, verbose=False) -> list | dict:
