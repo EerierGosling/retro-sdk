@@ -16,7 +16,11 @@ class Retro:
     """A client for interacting with the Retro API."""
 
     def __init__(self, refresh_token=None) -> None:
-        """Initializes the Retro client."""
+        """
+        Initializes the Retro client.
+        
+        If `refresh_token` is provided, the client will use the account associated with that refresh token.
+        """
         self.refresh_token = refresh_token
         self.auth_token = None
         self.web_api_key = "AIzaSyDVXcY0s4ZeREh43EYzsHqbEWcCJ6Ism5w"
