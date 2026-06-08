@@ -134,6 +134,8 @@ class Retro:
         """
         Verifies the code sent to the user's phone number. Adds the authentication token to the client if successful. Returns `True` if the code was correct, `False` otherwise.
 
+        Uses the last phone number from `send_code` by default, but if `phone_number` is provided, it will use that instead.
+
         If `verbose=True`, returns the full response from the server which is in the format:
         ```
         {
