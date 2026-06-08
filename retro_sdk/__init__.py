@@ -1,3 +1,3 @@
 from .client import Retro
 
-__all__ = ['Retro']
+__all__ = ['Retro', 'FieldFilter']
