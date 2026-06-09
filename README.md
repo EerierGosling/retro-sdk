@@ -1,6 +1,6 @@
 # retro sdk
 
-a python sdk for the internal retro api + db!
+a python sdk for the internal retro api + db! available on pypi as [retro-sdk](https://pypi.org/project/retro-sdk/) :)
 
 ## authentication
 
